@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>HomeWork#1</title>
+
+<script type="x-shader/x-vertex" id="vshader">
+attribute vec3 coords;
+uniform mat4 modelview;
+uniform mat4 projection;
+attribute vec3 normal;
+uniform mat3 normalMatrix;
+uniform vec4 color;
+varying vec4 vColor;
+void main() {
+  vec4 coords = vec4(coords,1.0);
+  vec4 transformedVertex = modelview * coords;
+  gl_Position = projection * transformedVertex;
+  vec3 unitNormal = normalize(normalMatrix*normal);
+  float multiplier = abs(unitNormal.z);
+  vColor = vec4( multiplier*color.r, multiplier*color.g, multiplier*color.b, color.a );
+}
+</script>
+<script type="x-shader/x-fragment" id="fshader">
+precision mediump float;
+varying vec4 vColor;
+void main() {
+  gl_FragColor = vColor;
+}
+</script>
+<script type="x-shader/x-vertex" id="gou_vshader">
+// attributes
+attribute vec3 coords;
+attribute vec3 normal;
+
+//passing uniforms
+uniform mat4 modelview;
+uniform mat3 normalMatrix;
+uniform mat4 projection;
+
+//directional light
+uniform vec3 uDirectionalLight ; // 
+
+uniform vec3 uLightPositionSpot; // 
+uniform vec3 uSpotLightDirection; // 
+uniform vec3 uLightPositionSpot2; // 
+uniform vec3 uSpotLightDirection2; // 
+uniform vec3 uLightPositionSpot3; // 
+uniform vec3 uSpotLightDirection3; // 
+
+uniform vec3 uLightPositionPositional; // 
+
+uniform vec3 uLightPositionPositional2; // 
+
+varying vec3 vpos;//my app
+varying vec3 lightWeighting;
+varying vec3 unitNormal;
+
+
+//texture
+attribute vec2 aTextureCoordinates;
+varying vec2 vTextureCoordinates;
+
+// uniform vec4 color;
+// shininess exponent
+const float uShininess=32.0;
+// amount of ambient component
+const float uKa=0.1;
+// amount of diffuse component
+const float uKd=0.8;
+// amount of specular component
+const float uKs=0.4;
+
+//abotut spotlight
+const float spotExponent = 5.0;
+const float spotCosCutoff = 0.5;
+void main() {
+  unitNormal = normalize(normalMatrix*normal);
+  vec4 coords = vec4(coords,1.0);
+  vec4 transformedVertex = modelview * coords;
+  gl_Position = projection * transformedVertex;
+
+  vpos = vec3(modelview * coords);
+
+  vec3 mat_ambient = vec3(1.0, 1.0, 1.0);
+  vec3 mat_diffuse = vec3(1.0, 1.0, 1.0);
+  vec3 mat_specular= vec3(1.0, 1.0, 1.0);
+  // normalize interpolated normal
+  vec3 N = normalize(unitNormal);
+  vec3 V = normalize(-vpos);
+  // ############### POSITIONAL LIGHT ###############
+  // vertex-to-eye (view vector)
+
+  float r = length(uLightPositionPositional-vpos);
+  vec3 uLightColorPositional = (vec3(1, 0.0, 0.0))/(0.02*3.14*3.14*r*r);
+
+  vec3 L = normalize(uLightPositionPositional - vpos);
+
+  // diffuse component
+  float NdotL = max(0.0, dot(N, L))/(0.03*3.14*3.14*r*r);
+  vec3 diffuse = (mat_diffuse * uLightColorPositional) * NdotL;
+  // specular component
+  vec3 R = (2.0 * NdotL * N) - L;
+  float RdotV = max(0.0, dot(R, V));
+  float spec = pow(RdotV, uShininess);
+  vec3 specular = (mat_specular * uLightColorPositional) * spec;
+  vec3 positionalLight =  uKd * diffuse + uKs * specular;
+
+ // ############### POSITIONAL LIGHT 2 - FATA ###############
+  // vertex-to-eye (view vector)
+
+   r = length(uLightPositionPositional2-vpos);
+  vec3 uLightColorPositional2 = (vec3(0, 0.0, 1.0))/(0.02*3.14*3.14*r*r);
+
+  vec3 L2 = normalize(uLightPositionPositional2 - vpos);
+
+  // diffuse component
+  NdotL = max(0.0, dot(N, L2))/(0.03*3.14*3.14*r*r);
+  diffuse = (mat_diffuse * uLightColorPositional2) * NdotL;
+  // specular component
+   R = (2.0 * NdotL * N) - L2;
+  RdotV = max(0.0, dot(R, V));
+   spec = pow(RdotV, uShininess);
+  specular = (mat_specular * uLightColorPositional2) * spec;
+  vec3 positionalLight2 =  uKd * diffuse + uKs * specular;
+
+
+
+  // SUNLIGHT
+  vec3 uLightColorSun = vec3(1.0, 1.0, 1.0);
+  // light vector (directional light)                                 \n\
+  L = normalize(uDirectionalLight);
+  // diffuse component                                               \n\
+  NdotL = max(0.0, dot(N, L));
+  diffuse = (mat_diffuse * uLightColorSun) * NdotL;
+
+  // specular component                                              \n\
+  R = (2.0 * NdotL * N) - L;
+  RdotV = max(0.0, dot(R, V));
+  spec = pow(RdotV, uShininess);
+  specular = (mat_specular * uLightColorSun) * spec;
+  vec3 sunlight =  uKd * diffuse + uKs * specular; //uKa * ambient +
+
+
+
+  //############   -  SPOTLIGHT ##################
+  vec3 spotDir = normalize(uSpotLightDirection);
+   r = length(uLightPositionSpot-vpos);
+  vec3 uLightColorSpot = (vec3(1.0, 1.0, 1.0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  // vec3 spotlight ;
+  L = normalize(uLightPositionSpot - vpos);
+
+  // diffuse component                                               \n\
+  float NdotLspot = max(0.0, dot(spotDir, L));// /(0.005*3.14*3.14*r*r);
+  if(NdotLspot > spotCosCutoff){
+    NdotLspot  = pow(NdotLspot, spotExponent);}
+    else{
+      NdotLspot = 0.0;
+    }
+    vec3 lc = uLightColorSpot * NdotLspot/(0.002*3.14*3.14*r*r);
+
+    //reflection
+
+
+    NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    vec3 spotlight    =  diffuse*uKd +specular*uKs;
+
+//############  SPOTLIGHT 2 ##################
+  vec3 spotDir2 = normalize(uSpotLightDirection2);
+   r = length(uLightPositionSpot2-vpos);
+  vec3 uLightColorSpot2 = (vec3(0, 1.0, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  // vec3 spotlight ;
+  L = normalize(uLightPositionSpot2 - vpos);
+
+  // diffuse component                                               \n\
+  float NdotLspot2 = max(0.0, dot(spotDir2, L));// /(0.005*3.14*3.14*r*r);
+  if(NdotLspot2 > spotCosCutoff){
+    NdotLspot2  = pow(NdotLspot2, spotExponent);}
+    else{
+      NdotLspot2 = 0.0;
+    }
+     lc = uLightColorSpot2 * NdotLspot2/(0.002*3.14*3.14*r*r);
+
+    //reflection
+
+
+    NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    vec3 spotlight2    =  diffuse*uKd +specular*uKs;
+//############  SPOTLIGHT 3 ##################
+  vec3 spotDir3 = normalize(uSpotLightDirection3);
+   r = length(uLightPositionSpot3-vpos);
+  vec3 uLightColorSpot3 = (vec3(0, 1.0, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  // vec3 spotlight ;
+  L = normalize(uLightPositionSpot3 - vpos);
+
+  // diffuse component                                               \n\
+  float NdotLspot3 = max(0.0, dot(spotDir3, L));// /(0.005*3.14*3.14*r*r);
+  if(NdotLspot3 > spotCosCutoff){
+    NdotLspot3  = pow(NdotLspot3, spotExponent);}
+    else{
+      NdotLspot3 = 0.0;
+    }
+     lc = uLightColorSpot3 * NdotLspot3/(0.002*3.14*3.14*r*r);
+
+    //reflection
+
+
+    NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    vec3 spotlight3    =  diffuse*uKd +specular*uKs;
+
+
+
+
+    vec3 ambient = mat_ambient;
+
+  //GOING TO FSHADER
+  lightWeighting =  spotlight + spotlight2 + spotlight3 + sunlight+positionalLight + positionalLight2;
+  // lightWeighting = spotlight;
+  vTextureCoordinates = aTextureCoordinates; //texture
+}
+</script>
+<script type="x-shader/x-fragment" id="gou_fshader">
+  precision mediump float;
+  varying vec3 lightWeighting;
+  uniform vec4 color;
+  //texture
+  varying vec2 vTextureCoordinates;
+  uniform sampler2D uSampler;
+  void main(){
+    // gl_FragColor = texture2D(uSampler, vTextureCoordinates) +vec4(lightWeighting, 1.0)*color;
+   
+        gl_FragColor =   vec4(lightWeighting, 1.0)*color;
+  }
+</script>
+<script type="x-shader/x-vertex" id="pho_vshader">
+attribute vec3 coords;
+
+uniform mat4 modelview;
+uniform mat4 projection;
+attribute vec3 normal;
+
+//texture
+attribute vec2 aTextureCoordinates;
+varying vec2 vTextureCoordinates;
+
+uniform mat3 normalMatrix;
+uniform vec4 color;
+varying vec3 unitNormal;
+varying vec3 vpos;//my app
+
+varying vec4 vColor;
+void main() {
+  vec4 coords = vec4(coords,1.0);
+  vec4 transformedVertex = modelview * coords;
+  gl_Position = projection * transformedVertex;
+  unitNormal = normalize(normalMatrix*normal);
+  vpos = vec3(modelview * coords);
+  vColor = color;
+
+  vTextureCoordinates = aTextureCoordinates; //texture
+}
+</script>
+<script type="x-shader/x-fragment" id="pho_fshader">
+precision mediump float;
+varying vec4 vColor;
+varying vec3 unitNormal;
+varying vec3 vpos;
+
+//directional light
+uniform vec3 uDirectionalLight ; // 
+uniform vec3 uLightPositionPositional; // 
+uniform vec3 uLightPositionPositional2; // 
+
+
+
+uniform vec3 uLightPositionSpot; // 
+uniform vec3 uSpotLightDirection; // 
+
+uniform vec3 uLightPositionSpot2; // 
+uniform vec3 uSpotLightDirection2; // 
+
+uniform vec3 uLightPositionSpot3; // 
+uniform vec3 uSpotLightDirection3; // 
+
+
+// shininess exponent
+const float uShininess=12.0;
+// amount of ambient component
+const float uKa=0.0;
+// amount of diffuse component
+const float uKd=0.8;
+// amount of specular component
+const float uKs=0.4;
+
+const float spotExponent = 5.0;
+const float spotCosCutoff = 0.5;
+
+
+vec3 mat_ambient = vec3(0.2, 0.2, 0.2);
+vec3 mat_diffuse = vec3(1.0, 1.0, 1.0);
+vec3 mat_specular= vec3(1.0, 1.0, 1.0);
+
+
+//texture
+varying vec2 vTextureCoordinates;
+uniform sampler2D uSampler;
+void main() {
+
+  // normalize interpolated normal
+  vec3 N = normalize(unitNormal);
+  // vertex-to-eye (view vector)
+  vec3 V = normalize(-vpos);
+  // ambient component (ambient light is assumed white)
+  vec3 ambient = mat_ambient;
+
+  // ############### POSITIONAL LIGHT ###############
+
+  // vec3 uLightPositionPositional = vec3(3.0,2.0,-16.0);
+  float r = length(uLightPositionPositional-vpos);
+  vec3 uLightColorPositional = (vec3(3, 0.0, 0.0))/(0.01*3.14*3.14*r*r);
+
+  vec3 L = normalize(uLightPositionPositional - vpos);
+
+  // diffuse component
+  float NdotL = max(0.0, dot(N, L))/(0.05*3.14*3.14*r*r);
+  vec3 diffuse = (mat_diffuse * uLightColorPositional) * NdotL;
+  // specular component
+  vec3 R = (2.0 * NdotL * N) - L;
+  float RdotV = max(0.0, dot(R, V));
+  float spec = pow(RdotV, uShininess);
+  vec3 specular = (mat_specular * uLightColorPositional) * spec;
+  vec3 positionalLight =  uKd * diffuse + uKs * specular;
+// ######################################################
+
+ // ############### POSITIONAL LIGHT 2 ###############
+
+  // vec3 uLightPositionPositional = vec3(3.0,2.0,-16.0);
+ r = length(uLightPositionPositional2-vpos);
+  vec3 uLightColorPositional2 = (vec3(0, 0.0, 1.0))/(0.01*3.14*3.14*r*r);
+
+   L = normalize(uLightPositionPositional2 - vpos);
+
+  // diffuse component
+  NdotL = max(0.0, dot(N, L))/(0.05*3.14*3.14*r*r);
+  diffuse = (mat_diffuse * uLightColorPositional2) * NdotL;
+  // specular component
+  R = (2.0 * NdotL * N) - L;
+  RdotV = max(0.0, dot(R, V));
+  spec = pow(RdotV, uShininess);
+  specular = (mat_specular * uLightColorPositional2) * spec;
+  vec3 positionalLight2 =  uKd * diffuse + uKs * specular;
+// ######################################################
+
+
+
+
+//   - DIRECTIONAL LIGHT
+  vec3 uLightColorSun = vec3(1, 1, 1);
+  // light vector (directional light)                                 \n\
+   L = normalize(uDirectionalLight);
+  // diffuse component                                               \n\
+   NdotL = max(0.0, dot(N, L));
+   diffuse = (mat_diffuse * uLightColorSun) * NdotL;
+  // specular component                                              \n\
+   R = (2.0 * NdotL * N) - L;
+   RdotV = max(0.0, dot(R, V));
+   spec = pow(RdotV, uShininess);
+   specular = (mat_specular * uLightColorSun) * spec;
+   vec3 sunlight =  uKd * diffuse + uKs * specular; //uKa * ambient +
+
+//  -  SPOTLIGHT
+  vec3 spotDir = normalize(uSpotLightDirection);
+  r = length(uLightPositionSpot-vpos);
+  vec3 uLightColorSpot = (vec3(1, 1, 1));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight ;
+  L = normalize(uLightPositionSpot - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot = max(0.0, dot(spotDir, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot > spotCosCutoff){
+      NdotLspot  = pow(NdotLspot, spotExponent);}
+    else{
+        NdotLspot = 0.0;
+    }
+    vec3 lc = uLightColorSpot * NdotLspot/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight    =  diffuse*uKd +specular*uKs;
+
+//  -  SPOTLIGHT2
+const float spotExponent2 = 75.0;
+const float spotCosCutoff2 = 10.5;
+ 
+
+ vec3 spotDir2 = normalize(uSpotLightDirection2);
+  r = length(uLightPositionSpot2-vpos);
+  vec3 uLightColorSpot2 = (vec3(0, 1, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight2 ;
+  L = normalize(uLightPositionSpot2 - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot2 = max(0.0, dot(spotDir2, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot2 > spotCosCutoff){
+      NdotLspot2  = pow(NdotLspot2, spotExponent2);}
+    else{
+        NdotLspot2 = 0.0;
+    }
+   lc = uLightColorSpot2 * NdotLspot2/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight2    =  diffuse*uKd +specular*uKs;
+
+
+  // }
+
+//  -  SPOTLIGHT3
+const float spotExponent3 = 75.0;
+const float spotCosCutoff3 = 10.5;
+ 
+
+ vec3 spotDir3 = normalize(uSpotLightDirection3);
+  r = length(uLightPositionSpot3-vpos);
+  vec3 uLightColorSpot3 = (vec3(0, 1, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight3 ;
+  L = normalize(uLightPositionSpot3 - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot3 = max(0.0, dot(spotDir3, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot3 > spotCosCutoff){
+      NdotLspot3  = pow(NdotLspot3, spotExponent3);}
+    else{
+        NdotLspot3 = 0.0;
+    }
+   lc = uLightColorSpot3 * NdotLspot3/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight3    =  diffuse*uKd +specular*uKs;
+
+
+  // }
+
+
+
+ vec3 lights = 0.8* sunlight + 0.8 * spotlight + spotlight2 + spotlight3 + positionalLight + positionalLight2; //   ambient*uKa + uKa * ambient +c
+
+ //vec3 lights = positionalLight2; //   solo fatina
+
+
+// lights =  spotlight;
+  //if(uHasTexture)
+    gl_FragColor =   0.5 * texture2D(uSampler, vTextureCoordinates) + vec4(lights, 1.0)*vColor;
+    //else
+      //gl_FragColor =   vec4(lights, 1.0)*vColor*2.0;
+}
+</script>
+
+<script type="x-shader/x-vertex" id="phont_vshader">
+attribute vec3 coords;
+
+uniform mat4 modelview;
+uniform mat4 projection;
+attribute vec3 normal;
+
+//texture
+attribute vec2 aTextureCoordinates;
+varying vec2 vTextureCoordinates;
+
+uniform mat3 normalMatrix;
+uniform vec4 color;
+varying vec3 unitNormal;
+varying vec3 vpos;//my app
+
+varying vec4 vColor;
+void main() {
+  vec4 coords = vec4(coords,1.0);
+  vec4 transformedVertex = modelview * coords;
+  gl_Position = projection * transformedVertex;
+  unitNormal = normalize(normalMatrix*normal);
+  vpos = vec3(modelview * coords);
+  vColor = color;
+
+  vTextureCoordinates = aTextureCoordinates; //texture
+}
+</script>
+<script type="x-shader/x-fragment" id="phont_fshader">
+precision mediump float;
+varying vec4 vColor;
+varying vec3 unitNormal;
+varying vec3 vpos;
+
+//directional light
+uniform vec3 uDirectionalLight ; // 
+uniform vec3 uLightPositionPositional; // 
+uniform vec3 uLightPositionPositional2; // 
+
+
+
+uniform vec3 uLightPositionSpot; // 
+uniform vec3 uSpotLightDirection; // 
+
+uniform vec3 uLightPositionSpot2; // 
+uniform vec3 uSpotLightDirection2; // 
+
+uniform vec3 uLightPositionSpot3; // 
+uniform vec3 uSpotLightDirection3; // 
+
+
+// shininess exponent
+const float uShininess=12.0;
+// amount of ambient component
+const float uKa=0.0;
+// amount of diffuse component
+const float uKd=0.8;
+// amount of specular component
+const float uKs=0.4;
+
+const float spotExponent = 5.0;
+const float spotCosCutoff = 0.5;
+
+
+vec3 mat_ambient = vec3(0.2, 0.2, 0.2);
+vec3 mat_diffuse = vec3(1.0, 1.0, 1.0);
+vec3 mat_specular= vec3(1.0, 1.0, 1.0);
+
+
+//texture
+varying vec2 vTextureCoordinates;
+uniform sampler2D uSampler;
+void main() {
+
+  // normalize interpolated normal
+  vec3 N = normalize(unitNormal);
+  // vertex-to-eye (view vector)
+  vec3 V = normalize(-vpos);
+  // ambient component (ambient light is assumed white)
+  vec3 ambient = mat_ambient;
+
+  // ############### POSITIONAL LIGHT ###############
+
+  // vec3 uLightPositionPositional = vec3(3.0,2.0,-16.0);
+  float r = length(uLightPositionPositional-vpos);
+  vec3 uLightColorPositional = (vec3(3, 0.0, 0.0))/(0.01*3.14*3.14*r*r);
+
+  vec3 L = normalize(uLightPositionPositional - vpos);
+
+  // diffuse component
+  float NdotL = max(0.0, dot(N, L))/(0.05*3.14*3.14*r*r);
+  vec3 diffuse = (mat_diffuse * uLightColorPositional) * NdotL;
+  // specular component
+  vec3 R = (2.0 * NdotL * N) - L;
+  float RdotV = max(0.0, dot(R, V));
+  float spec = pow(RdotV, uShininess);
+  vec3 specular = (mat_specular * uLightColorPositional) * spec;
+  vec3 positionalLight =  uKd * diffuse + uKs * specular;
+// ######################################################
+
+ // ############### POSITIONAL LIGHT 2 ###############
+
+  // vec3 uLightPositionPositional = vec3(3.0,2.0,-16.0);
+ r = length(uLightPositionPositional2-vpos);
+  vec3 uLightColorPositional2 = (vec3(0, 0.0, 1.0))/(0.01*3.14*3.14*r*r);
+
+   L = normalize(uLightPositionPositional2 - vpos);
+
+  // diffuse component
+  NdotL = max(0.0, dot(N, L))/(0.05*3.14*3.14*r*r);
+  diffuse = (mat_diffuse * uLightColorPositional2) * NdotL;
+  // specular component
+  R = (2.0 * NdotL * N) - L;
+  RdotV = max(0.0, dot(R, V));
+  spec = pow(RdotV, uShininess);
+  specular = (mat_specular * uLightColorPositional2) * spec;
+  vec3 positionalLight2 =  uKd * diffuse + uKs * specular;
+// ######################################################
+
+
+
+
+//   - DIRECTIONAL LIGHT
+  vec3 uLightColorSun = vec3(1, 1, 1);
+  // light vector (directional light)                                 \n\
+   L = normalize(uDirectionalLight);
+  // diffuse component                                               \n\
+   NdotL = max(0.0, dot(N, L));
+   diffuse = (mat_diffuse * uLightColorSun) * NdotL;
+  // specular component                                              \n\
+   R = (2.0 * NdotL * N) - L;
+   RdotV = max(0.0, dot(R, V));
+   spec = pow(RdotV, uShininess);
+   specular = (mat_specular * uLightColorSun) * spec;
+   vec3 sunlight =  uKd * diffuse + uKs * specular; //uKa * ambient +
+
+//  -  SPOTLIGHT
+  vec3 spotDir = normalize(uSpotLightDirection);
+  r = length(uLightPositionSpot-vpos);
+  vec3 uLightColorSpot = (vec3(1, 1, 1));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight ;
+  L = normalize(uLightPositionSpot - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot = max(0.0, dot(spotDir, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot > spotCosCutoff){
+      NdotLspot  = pow(NdotLspot, spotExponent);}
+    else{
+        NdotLspot = 0.0;
+    }
+    vec3 lc = uLightColorSpot * NdotLspot/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight    =  diffuse*uKd +specular*uKs;
+
+//  -  SPOTLIGHT2
+const float spotExponent2 = 75.0;
+const float spotCosCutoff2 = 10.5;
+ 
+
+ vec3 spotDir2 = normalize(uSpotLightDirection2);
+  r = length(uLightPositionSpot2-vpos);
+  vec3 uLightColorSpot2 = (vec3(0, 1, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight2 ;
+  L = normalize(uLightPositionSpot2 - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot2 = max(0.0, dot(spotDir2, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot2 > spotCosCutoff){
+      NdotLspot2  = pow(NdotLspot2, spotExponent2);}
+    else{
+        NdotLspot2 = 0.0;
+    }
+   lc = uLightColorSpot2 * NdotLspot2/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight2    =  diffuse*uKd +specular*uKs;
+
+
+  // }
+
+//  -  SPOTLIGHT3
+const float spotExponent3 = 75.0;
+const float spotCosCutoff3 = 10.5;
+ 
+
+ vec3 spotDir3 = normalize(uSpotLightDirection3);
+  r = length(uLightPositionSpot3-vpos);
+  vec3 uLightColorSpot3 = (vec3(0, 1, 0));///(0.005*3.14*3.14*r*r);///(0.01*3.14*3.14*r*r) 0.005
+  //
+  vec3 spotlight3 ;
+  L = normalize(uLightPositionSpot3 - vpos);
+
+  // diffuse component                                               \n\
+   float NdotLspot3 = max(0.0, dot(spotDir3, L));// /(0.005*3.14*3.14*r*r);
+    if(NdotLspot3 > spotCosCutoff){
+      NdotLspot3  = pow(NdotLspot3, spotExponent3);}
+    else{
+        NdotLspot3 = 0.0;
+    }
+   lc = uLightColorSpot3 * NdotLspot3/(0.005*3.14*3.14*r*r);
+      //reflection
+
+
+      NdotL = max(0.0, dot(N, L));
+    R = (2.0 * NdotL * N) - L;
+    RdotV = max(0.0, dot(R,V));
+    spec = pow(RdotV, uShininess);
+    specular = (mat_specular * lc) * spec;
+    diffuse = ((mat_diffuse * lc) * NdotL) ;
+    spotlight3    =  diffuse*uKd +specular*uKs;
+
+
+  // }
+
+
+
+ vec3 lights = 0.8* sunlight + 0.8 * spotlight + spotlight2 + spotlight3 + positionalLight + positionalLight2; //   ambient*uKa + uKa * ambient +c
+
+ //vec3 lights = positionalLight2; //   solo fatina
+
+
+// lights =  spotlight;
+    gl_FragColor =    vec4(lights, 1.0)*vColor;
+ 
+}
+</script>
+
+<script type="text/javascript" src="js/gl-matrix.js"></script>
+<script type="text/javascript" src="js/basic-objects.js"></script>
+<script type="text/javascript" src="js/simple-rotator.js"></script>
+
+<script type="text/javascript">
+
+"use strict";
+
+var gl;   // The webgl context.
+
+var aCoords;           // Location of the coords attribute variable in the shader program.
+var aCoordsBuffer;     // Buffer to hold coords.
+var aNormal;           // Location of the normal uniform in the shader program.
+var aNormalBuffer;     // Buffer to hold normal vectors.
+var indexBuffer;       // Buffer to hold indices for gl.drawElements
+var uColor;            // Location of the color uniform variable in the shader program.
+var uProjection;       // Location of the projection uniform matrix in the shader program.
+var uModelview;        // Location of the modelview unifirm matrix in the shader program.
+var uNormalMatrix;     // Location of the normalMatrix uniform matrix in the shader program.
+var textureBuffer; //buffer to hold texture
+ var uDirectionalLight; //   adding the sun
+// var directional = [1.0,1.0,0.0];
+var directional = vec3.create() ;
+
+var projection = mat4.create();   // projection matrix
+var modelview = mat4.create();    // modelview matrix
+var normalMatrix = mat3.create(); // matrix, derived from modelview matrix, for transforming normal vectors
+
+var rotator;   // A SimpleRotator object to enable rotation by mouse dragging.
+
+var frameNumber = 0;  // frame number during animation (actually only goes up by 0.5 per frame)
+
+var torus, sphere, cone, cylinder, disk, ring, cube;  // basic objects, created using function createModel
+
+// var show = 1;  // When this variable is 1, the entire scene is drawn; when it is 2, only the car is shown
+var show = 1;
+
+var modelview;                  // The current modelview matrix
+var matrixStack = [];           // A stack of matrices for implementing hierarchical graphics.
+
+var currentColor = [1,1,1,1];   // The current drawing color; objects are rendered using this color.
+
+var aTextureCoordinates;
+
+
+/**
+ * Draws the image, which consists of either the "world" or a closeup of the "car".
+ */
+function draw() {
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    mat4.perspective(projection, Math.PI/4, 1, 1, 50);			//assigns to the matrix projection the transformation with frustum
+																//defined by an eye angle of 45 degrees (pi/4), ratio of width/height
+																// of 1, near plane 1 and far plane 50
+    gl.uniformMatrix4fv(uProjection, false, projection );		//assigns the value of the matrix projection to the uniform matrix uProjection
+
+    modelview = rotator.getViewMatrix();						//computes the modelview from the position of the rotator
+    mat3.normalFromMat4(normalMatrix, modelview);				//computes the normalMatrix (used to multiply the normals) from the modelview
+
+    if (show == 1)
+        world();
+    else
+       car();
+}
+
+/**
+ * Draws a "world" consisting of a disk holding some trees and a road, and a car that
+ * drives along the road.  A tree in the middle grows from frame 0 to frame 1000.
+ */
+function world() {
+	pushMatrix();													//creates a copy of the current top matrix of the matrix stack
+	mat4.translate(modelview,modelview,[0,-0.05,0]);				//modifies the second parameter (modelview) by multiplying it with
+																	//the translation matrix with parameters [0,-0.05,0] and assigns the result
+																	//to the first parameter. In this case, it modifies the modelview.
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[1,0,0]);		//modifies the second parameter (modelview) by multiplying it with
+																	//the rotation matrix with parameters (90)/180*Math.PI (angle of 90 degrees) and
+																	//[1,0,0] (axis of rotation) and assigns the result
+																	//to the first parameter. In this case, it modifies the modelview.
+	currentColor = [0.7,0.9,0.7,1];	
+	changeTexture(0);								//Defines the color
+	disk.render();													//Renders the disk
+	popMatrix();													//deletes the top matrix of the stack
+	pushMatrix();
+	currentColor = [ 0.7,0.7,.7,1];
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	changeTexture(3);
+	ring.render();
+	popMatrix();
+	pushMatrix();
+  /* my Adding: new car */
+  mat4.scale(modelview,modelview,[0.3,0.3,0.3]);
+ 
+ mat4.translate(modelview,modelview,car_position_2 );
+  mat4.rotate(modelview,modelview,(carRot1)/180*Math.PI,[0,1,0]);
+	changeTexture(2);
+  car();
+
+  popMatrix();
+  pushMatrix();
+  //#####
+
+
+  //#1 new tree
+  mat4.translate(modelview,modelview,[8.6,0,0]);
+  mat4.scale(modelview,modelview,[0.7,1.0,0.7]);
+  tree(false);
+  popMatrix();
+  pushMatrix();
+
+  //#2 new tree
+  mat4.translate(modelview,modelview,[-1.6,0,0]);
+  mat4.scale(modelview,modelview,[0.7,1.0,0.7]);
+  tree(false);
+  popMatrix();
+  pushMatrix();
+
+  //#3 new tree
+  mat4.translate(modelview,modelview,[3.6,0,-5]);
+  mat4.scale(modelview,modelview,[0.7,1.0,0.7]);
+  tree(false);
+  popMatrix();
+  pushMatrix();
+
+
+  //#4 new tree
+  mat4.translate(modelview,modelview,[3.6,0,5]);
+  mat4.scale(modelview,modelview,[0.7,1.0,0.7]);
+  tree(false);
+  popMatrix();
+ // pushMatrix();
+  pushMatrix();
+
+
+  //castle
+  mat4.translate(modelview,modelview,[0,0,0]);
+  mat4.scale(modelview,modelview,[0.7,0.7,0.7]);
+//mat4.scale(modelview,modelview,[1.7,1.7,1.7]);
+//	mat4.translate(modelview,modelview,[4,0,0]);
+  
+//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+  
+  castle();
+	//cenerentola();  
+	popMatrix();
+  //pushMatrix();
+//luce per terra 1
+	pushMatrix();
+
+
+ currentColor = [1,1,1,1];	
+	changeTexture(2);
+  mat4.translate(modelview,modelview,[0.9,0.7,1.7]);
+  mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+  var normM = mat3.create();
+  mat3.normalFromMat4(normM,modelview);
+
+  vec3.transformMat3(spotDirT2, spotDir2, normM);
+  vec3.transformMat4(spotPosT2, spotPos2, modelview);
+  cone.render();
+  popMatrix();
+pushMatrix();
+
+
+  mat4.translate(modelview,modelview,[0.5,0.8,1.4]);
+  mat4.scale(modelview,modelview,[0.1,0.1,0.3]);
+  //mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,0,0]);
+
+  cylinder.render();
+  popMatrix();
+//luce per terra 2
+	pushMatrix();
+
+
+ currentColor = [1,1,1,1];	
+	
+  mat4.translate(modelview,modelview,[-0.15,0.7,1.7]);
+  mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+
+  vec3.transformMat3(spotDirT3, spotDir3, normM);
+  vec3.transformMat4(spotPosT3, spotPos3, modelview);
+  cone.render();
+  popMatrix();
+pushMatrix();
+
+
+  mat4.translate(modelview,modelview,[-0.55,0.8,1.4]);
+  mat4.scale(modelview,modelview,[0.1,0.1,0.3]);
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,0,0]);
+
+  cylinder.render();
+  popMatrix();
+//cenerentola
+ // mat4.translate(modelview,modelview,[2.1,0,-0.6]);
+  pushMatrix();
+  mat4.scale(modelview,modelview,[0.6,0.6,0.6]);
+  mat4.rotate(modelview,modelview,(45)/180*Math.PI,[0,1,0]);
+
+  if(frameNumber>17 && frameNumber<28) {
+	
+	 mat4.translate(modelview,modelview,[3.3 - ((frameNumber-17) * 0.15),0,1.8 + ((frameNumber-17) * 0.2)]);
+	cenerentola();
+  //popMatrix();
+}
+popMatrix();
+//mat4.translate(modelview,modelview,[0,0,0]);
+ 
+
+
+
+
+//scarpetta
+	if(frameNumber>27)	scarpetta();
+//fatina che svolazza
+	pushMatrix();
+    	currentColor = [0,0,1.0,1];
+
+    var s=0.8;
+	changeTexture(2);
+    var angle = ((frameNumber)/2 )* Math.PI/24.0;
+
+    var pos = [-Math.sin(angle *2 ) * 4, 3, Math.cos(angle *2) * 4];
+ mat4.scale(modelview,modelview,[1*s,1*s,1*s]);
+      
+ mat4.translate(modelview,modelview,pos);
+vec3.transformMat4(fat_light,lightPos2,modelview);
+ mat4.translate(modelview,modelview,[5,0,0]);
+   // mat4.rotate(modelview,modelview,(-90)/180*Math.PI,[0,-1,0]);
+    
+      //buonooo
+	      
+	 fatina();	
+     popMatrix();
+
+
+
+ //restore stack
+	//popMatrix();
+	popMatrix();
+}
+var nTree = 0 ;
+/**
+ * Draws a tree consisting of a green cone with a brown cylinder for a trunk.
+ */
+
+function fatina(){
+
+pushMatrix();
+	//Tronco
+	changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5,0.3,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.8]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+	pushMatrix();
+	pushMatrix();
+	//vestito2
+	changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5,0.4,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.4,0.4,0.5]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+	
+	pushMatrix();
+	//spalle
+	changeTexture(2);
+	currentColor = [1.0,0.8,0.7,1];
+	mat4.translate(modelview,modelview,[-5,1.1,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.15]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+	//testa
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [1.0,0.8,0.7,1];
+	mat4.translate(modelview,modelview,[-5,1.35,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//capelli
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-4.9,1.45,-0.1]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//occhio1
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [0,0,1,1];
+	mat4.translate(modelview,modelview,[-5.0,1.45,0.2]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.05,0.05,0.05]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+
+//occhio2
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [0,0,1,1];
+	mat4.translate(modelview,modelview,[-5.2,1.47,0.1]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.05,0.05,0.05]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//braccio1
+	pushMatrix();
+	//changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5.25,0.85,-0.3]);
+	mat4.rotate(modelview,modelview,(45)/180*Math.PI,[-1,1,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.5]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+//braccio2
+	pushMatrix();
+	/*var ang=frameNumber * 20;
+	if(frameNumber>24){
+		ang=(24 - frameNumber%23) * 20  	
+	}*/
+	var ang= (((frameNumber) * 10)%180) ;
+	
+	if(ang>90){
+		ang=90-ang%90;
+	}
+	//changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-4.95,0.98,-0.05]);
+	mat4.rotate(modelview,modelview,(ang)/180*Math.PI,[-1,1,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.5]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+
+}
+function castle() {
+	pushMatrix();
+	//cabina sotto	
+	//recinto
+	//mat4.scale(modelview,modelview,[5,2,3.8]);
+	//muro est	
+	mat4.scale(modelview,modelview,[0.2,2,3.8]);
+		
+	mat4.translate(modelview,modelview,[15.5,0.5,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	changeTexture(4);
+	cube.render();
+	popMatrix();
+	//muro ovest	
+	pushMatrix();
+	
+	mat4.scale(modelview,modelview,[0.2,2,3.8]);
+	
+	mat4.translate(modelview,modelview,[-15.5,0.5,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cube.render();
+	popMatrix();
+	//muro nord	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,1,0]);
+		
+	mat4.scale(modelview,modelview,[0.2,1.5,5.8]);
+	mat4.translate(modelview,modelview,[7.9,0.5,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cube.render();
+	popMatrix();
+	//muro sud est	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,1,0]);
+		
+	mat4.scale(modelview,modelview,[0.2,1.5,1.8]);
+	mat4.translate(modelview,modelview,[-8.9,0.5,1]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cube.render();
+	popMatrix();
+	//muro sud ovest	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,1,0]);
+		
+	mat4.scale(modelview,modelview,[0.2,1.5,1.8]);
+	mat4.translate(modelview,modelview,[-8.9,0.5,-1]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cube.render();
+	popMatrix();
+//muro sud up	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[0,1,0]);
+		
+	mat4.scale(modelview,modelview,[0.2,0.26,1.8]);
+	mat4.translate(modelview,modelview,[-8.9,5.3,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cube.render();
+	popMatrix();
+//torre sx portone	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.5,0.5,0.5]);
+	mat4.translate(modelview,modelview,[-1.5,-3.5,0]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+//torre dx portone	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.5,0.5,0.5]);
+	mat4.translate(modelview,modelview,[1.5,-3.5,0]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+//torre interna piano terra dx	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.8,0.8,1.2]);
+	mat4.translate(modelview,modelview,[2.5,-1.5,0]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+//torre interna I piano sx	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.5,0.5,0.9]);
+	mat4.translate(modelview,modelview,[-3.5,-1.5,2.5]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+//torre interna piano terra back sx	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.8,0.8,1.2]);
+	mat4.translate(modelview,modelview,[-2.5,1.5,0]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+//torre interna I piano back dx	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.5,0.5,0.9]);
+	mat4.translate(modelview,modelview,[3.5,1.5,2.5]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+
+	//portone
+	pushMatrix();
+	//mat4.rotate(modelview,modelview,(45)/180*Math.PI,[-1,0,0]);
+	var angle= 90	- (frameNumber * 5)
+	//var coeffX=0.1
+	//var coeffY=0.1	
+	//if (angle>45){ 
+	//	coeffX= angle/9
+	//	coeffY= angle/23
+	//}
+	//angle=44
+	if(angle<0) angle=0	
+	var x=-17.0 + (frameNumber * 0.9)
+	var y=0.5 + (frameNumber * 0.2)
+		
+	if(angle<5) {
+		x= -19 + (45/4 * 0.2) + frameNumber * 0.9
+		y=  0.5+ (45/4 * 0.2) 
+		//if(y>3.3) y=3.3
+		//if(x>0) x=0.0
+	}
+	if(angle<10){
+		x=0.0
+		y=3.3
+	}
+	if(angle>10) mat4.rotate(modelview,modelview,(angle)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[0.5,0.1,0.8]);
+		
+	//mat4.translate(modelview,modelview,[0.0,-19.0 + (frameNumber * 0.4),0.5 + (frameNumber * 0.2) ]);
+	mat4.translate(modelview,modelview,[0.0,x,y ]);
+	//mat4.translate(modelview,modelview,[0.0,0.0 ,3.3 ]);
+		
+	currentColor = [0.5,0.3,0.1,1];
+	changeTexture(5);
+	sphere.render();
+	popMatrix();
+//palazzo
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	currentColor = [0.8,0.5,1.0,1];
+		
+	mat4.scale(modelview,modelview,[4.2,2.8,2.3]);
+	mat4.translate(modelview,modelview,[0.0,0.0,0.5]);
+	changeTexture(4);
+	
+	cube.render();
+	popMatrix();
+
+	
+	
+//fronte
+	torreFrontale();
+//torre grande up
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+		
+	mat4.scale(modelview,modelview,[1.0,1.0,1.9]);
+	mat4.translate(modelview,modelview,[0.7,0.1,0.1]);
+		
+	currentColor = [0.8,0.5,1.0,1];
+	
+	tower();
+	popMatrix();
+
+	
+	//cabina sopra	
+	pushMatrix();	
+	currentColor = [0.8,0.5,1.0,1];
+	
+	mat4.scale(modelview,modelview,[3,2,1.8]);
+	mat4.translate(modelview,modelview,[0,1.5,0]);
+	changeTexture(4);
+	cube.render();
+	popMatrix();
+	
+	torri();
+
+	popMatrix();
+	
+}
+function torreFrontale(){
+	//mura	
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	mat4.scale(modelview,modelview,[1.2,1.2,4.0]);
+	mat4.translate(modelview,modelview,[0.0,-0.7,0.5]);
+	changeTexture(4);
+	cube.render();
+	popMatrix();
+	//finestra
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	currentColor = [0.0,0.0,1.0,1];
+	mat4.scale(modelview,modelview,[0.4,0.4,0.6]);
+	mat4.translate(modelview,modelview,[0.0,-3.0,5.5]);
+	changeTexture(6);
+	sphere.render();
+	popMatrix();
+	//tetto
+	pushMatrix();
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	currentColor = [0.0,0.0,1.0,1];
+	mat4.scale(modelview,modelview,[1.4,0.9,1.1]);
+	changeTexture(7);
+	mat4.translate(modelview,modelview,[2.0,-1.35,4.15]);
+	cone.render();
+	popMatrix();
+	
+ 	pushMatrix();
+    	currentColor = [1,0,0.0,1];
+
+    var s=0.1;
+	changeTexture(2);
+    mat4.translate(modelview,modelview,[0,5,1.2]);
+    mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,-1,0]);
+    mat4.scale(modelview,modelview,[1*s,1*s,1*s]);
+   // var normM = mat3.create();
+ // mat3.normalFromMat4(normM,modelview);
+ 
+     vec3.transformMat4(xmas_light,lightPos,modelview); //buonooo
+	      
+	 sphere.render();
+     popMatrix();
+}
+
+function torri(){
+	//torre SE	
+	pushMatrix();
+	mat4.scale(modelview,modelview,[1,1,0.8]);
+	mat4.translate(modelview,modelview,[3,0.0,2.4]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	tower();
+	popMatrix();
+	//torre NE	
+	pushMatrix();
+	mat4.scale(modelview,modelview,[1,1,0.8]);
+	mat4.translate(modelview,modelview,[-3,0.0,2.4]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	tower();
+	//popMatrix();
+	//torre NW	
+	//pushMatrix();
+	mat4.scale(modelview,modelview,[1,1,1]);
+	mat4.translate(modelview,modelview,[6.0,4.7,0]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	tower();
+	//torre SW	
+	//pushMatrix();
+	mat4.scale(modelview,modelview,[1,1,1]);
+	mat4.translate(modelview,modelview,[-6.0,0.0,0]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	tower();
+
+
+	//popMatrix();
+
+
+}
+function scarpetta(){
+	pushMatrix();
+	//tacco	
+	
+	mat4.scale(modelview,modelview,[0.2,0.05,0.1]);
+	mat4.translate(modelview,modelview,[1,0.2,29]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);	
+	currentColor = [0,0,1.0,1];
+	
+	cylinder.render();
+	popMatrix();
+	//balcone	
+
+}
+function tower() {
+	pushMatrix();
+	//cabina sotto	
+	changeTexture(4);
+	mat4.scale(modelview,modelview,[1.0,1.2,3.0]);
+	mat4.translate(modelview,modelview,[0,0,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cylinder.render();
+	popMatrix();
+	//balcone	
+		
+	pushMatrix();
+	
+	mat4.scale(modelview,modelview,[1.5,1.5,0.6]);
+	mat4.translate(modelview,modelview,[0,0,3.1]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	cylinder.render();
+	popMatrix();
+	
+	 //base
+	pushMatrix();
+	
+	mat4.scale(modelview,modelview,[0.7,0.7,0.5]);
+	mat4.translate(modelview,modelview,[0.0,0,0]);
+	currentColor = [0.8,0.5,1.0,1];
+	
+	sphere.render();
+	popMatrix();
+
+	//tetto	
+		
+	pushMatrix();
+	changeTexture(2);
+	mat4.scale(modelview,modelview,[1.3,1.5,0.9]);
+	mat4.translate(modelview,modelview,[2.0,0,3.8]);
+	currentColor = [0.0,0.0,1.0,1];
+	changeTexture(7);
+	cone.render();
+	popMatrix();
+//popMatrix();
+	pushMatrix();
+	var ang= (((frameNumber) * 10)%180) ;
+	
+	if(ang>90){
+		ang=90-ang%90;
+	}
+	
+	
+	mat4.rotate(modelview,modelview,(ang)/180*Math.PI,[0,0,1]);	
+	
+	bandiera();
+	popMatrix();
+	
+}
+function bandiera(){
+//asta bandiera
+	pushMatrix();
+	changeTexture(2);
+	mat4.scale(modelview,modelview,[0.1,0.1,0.9]);
+	mat4.translate(modelview,modelview,[0,0,3.8]);
+	currentColor = [0.0,0.0,1.0,1];
+	//changeTexture(7);
+	cylinder.render();
+	popMatrix();
+	//bandiera
+	pushMatrix();
+	//changeTexture(9);
+	mat4.scale(modelview,modelview,[0.7,0.05,0.4]);
+	mat4.translate(modelview,modelview,[0.5,0,10.5]);
+	//mat4.rotate(modelview,modelview,(frameNumber*4)/180*Math.PI,[0,0,1]);	
+	
+	//currentColor = [1.0,1.0,1.0,1];
+	changeTexture(9);
+	cube.render();
+	popMatrix();
+}
+function cenerentola(){
+	pushMatrix();
+	//Tronco
+	changeTexture(10);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5,0.3,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.8]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+	pushMatrix();
+	//vestito
+	changeTexture(10);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5,0,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.4,0.4,0.8]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+	pushMatrix();
+	//vestito2
+	changeTexture(10);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5,0.4,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.4,0.4,0.5]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+	
+	pushMatrix();
+	//spalle
+	changeTexture(2);
+	currentColor = [1.0,0.8,0.7,1];
+	mat4.translate(modelview,modelview,[-5,1.1,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.15]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+	//testa
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [1.0,0.8,0.7,1];
+	mat4.translate(modelview,modelview,[-5,1.35,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//capelli
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [1.0,0.6,0,1];
+	mat4.translate(modelview,modelview,[-4.9,1.45,-0.1]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.2,0.2,0.2]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//occhio1
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [0,0,1,1];
+	mat4.translate(modelview,modelview,[-5.0,1.45,0.2]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.05,0.05,0.05]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+
+//occhio2
+	pushMatrix();
+	
+	changeTexture(2);
+	currentColor = [0,0,1,1];
+	mat4.translate(modelview,modelview,[-5.2,1.47,0.1]);
+	//mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.05,0.05,0.05]);
+	    	
+	sphere.render();
+	
+	popMatrix();
+//braccio1
+	pushMatrix();
+	
+	//changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-5.25,0.85,-0.3]);
+	mat4.rotate(modelview,modelview,(45)/180*Math.PI,[-1,1,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.5]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+//braccio2
+	pushMatrix();
+	var ang=frameNumber * 20;
+	if(frameNumber>24){
+		ang=(24 - frameNumber%23) * 20  	
+	}
+	//changeTexture(2);
+	currentColor = [0.5,0.7,1,1];
+	mat4.translate(modelview,modelview,[-4.95,0.98,-0.05]);
+	mat4.rotate(modelview,modelview,(ang)/180*Math.PI,[-1,1,0]);
+	
+	mat4.scale(modelview,modelview,[0.1,0.1,0.5]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+}
+
+function tree() {
+	//pushMatrix();
+	pushMatrix();
+	//Tronco albero
+	changeTexture(5);
+	currentColor = [0.5,0.3,0.1,1];
+	mat4.translate(modelview,modelview,[-5,0,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	mat4.scale(modelview,modelview,[0.4,0.4,0.8]);
+	    	
+	cylinder.render();
+	
+	popMatrix();
+	pushMatrix();
+	//Foglie
+	changeTexture(1);
+	mat4.translate(modelview,modelview,[-3,1.2,0]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	
+	currentColor = [0,0.8,0,1];
+	cone.render();
+	popMatrix();
+//	popMatrix();
+}
+
+
+/**
+ * Draws a car consisting of two scaled red cubes with headlights
+ * and four wheels on two axels.
+ */
+function car() {
+	
+	pushMatrix();
+	//asse1
+	currentColor = [0.5,0.7,0.9,1];
+	mat4.translate(modelview,modelview,[1.3,0.6,0]);
+	mat4.scale(modelview,modelview,[1.3,1.3,0.9]);
+	changeTexture(2);
+	axel();
+	popMatrix();
+	pushMatrix();
+	//asse2	
+	mat4.translate(modelview,modelview,[-1.3,0.6,0]);
+	mat4.scale(modelview,modelview,[1.3,1.3,0.9]);
+	
+	axel();
+	popMatrix();
+	currentColor = [0.5,0.7,0.9,1];
+	pushMatrix();
+	//cabina	
+	mat4.scale(modelview,modelview,[3,0.3,2.3]);
+	mat4.translate(modelview,modelview,[0,3.6,0]);
+	currentColor = [0,0,0,1];
+	changeTexture(5);
+	cube.render();
+	popMatrix();
+	currentColor = [1,1,0.3,1];
+	//zucca
+	pushMatrix();
+	currentColor = [1,0.5,0,1];
+	mat4.translate(modelview,modelview,[0,3.3,0]);
+	mat4.scale(modelview,modelview,[1.9,1.95,1.95]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);	
+	changeTexture(8);
+	sphere.render();
+	popMatrix();
+	//
+	
+	//finestre
+	pushMatrix();
+	currentColor = [0.5,0.7,0.9,1];
+	mat4.translate(modelview,modelview,[0,3.8,-2]);
+	mat4.scale(modelview,modelview,[1.3,1.3,3.95]);
+	changeTexture(9);
+	cylinder.render();
+	popMatrix();
+	//coso sopra
+	pushMatrix();
+	changeTexture(2);
+	currentColor = [0.0,0.9,0.0,1];
+	mat4.translate(modelview,modelview,[0,5.0,0]);
+	mat4.scale(modelview,modelview,[0.5,1.0,0.5]);
+	mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,0,0]);
+	cylinder.render();
+	popMatrix();
+	//lucetta
+	pushMatrix();
+  currentColor = [1.0,1.0,0.1,1];
+
+  var s=0.1;
+
+  mat4.translate(modelview,modelview,[0,6.1,0]);
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[-1,-1,0]);
+  mat4.scale(modelview,modelview,[1*s,1*s,1*s]);
+
+  var normM = mat3.create();
+  mat3.normalFromMat4(normM,modelview);
+ 
+  vec3.transformMat3(spotDirT, spotDir, normM);
+  vec3.transformMat4(spotPosT, spotPos, modelview);
+ 
+  sphere.render();
+  popMatrix();
+	//coso giallo
+	pushMatrix();
+
+	mat4.translate(modelview,modelview,[-1.6,1.0,-1]);
+	mat4.scale(modelview,modelview,[0.1,0.25,0.25]);
+	//sphere.render();
+	popMatrix();
+	currentColor = [1,1,0.3,1];
+	
+	
+
+
+}
+
+
+var normM = mat3.create();
+var lightPos =  [0,0,0];
+var lightPos2 =  [0,0,0];
+
+function lampione(){
+  pushMatrix();
+  currentColor = [0.5,0.1,1.0,1.0];
+  mat4.translate(modelview,modelview,[0,0,0]);
+
+  mat4.scale(modelview,modelview,[0.05,1,0.05]);
+
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[1,0,0]);
+  cylinder.render();
+  popMatrix();
+
+  pushMatrix();
+  currentColor = [1.0,1.0,0.1,1];
+
+  var s=0.05;
+
+  mat4.translate(modelview,modelview,[0,0.1,0]);
+  mat4.rotate(modelview,modelview,(90)/180*Math.PI,[1,1,0]);
+  mat4.scale(modelview,modelview,[1*s,1*s,1*s]);
+
+  var normM = mat3.create();
+  mat3.normalFromMat4(normM,modelview);
+ // vec3.transformMat3(spotDirT, spotDir, normM);
+ // vec3.transformMat4(spotPosT, spotPos, modelview);
+
+  sphere.render();
+  popMatrix();
+}
+/**
+ *  Draw an axel that consists of a long yellow cylinder with
+ *  a wheel on each end.
+ */
+function axel() {
+	currentColor = [0.8,0.7,0,1];
+	pushMatrix();
+	mat4.scale(modelview,modelview,[0.2,0.2,4.3]);
+	mat4.translate(modelview,modelview,[0,0,-0.5]);
+	cylinder.render();
+	popMatrix();
+	pushMatrix();
+	mat4.translate(modelview,modelview,[0,0,2]);
+	wheel();
+	popMatrix();
+	pushMatrix();
+	mat4.translate(modelview,modelview,[0,0,-2]);
+
+	wheel();
+	popMatrix();
+}
+
+/**
+ * Draw a rotating wheel that consists of a torus with three
+ * cylinders to make the spokes of the wheel.
+ */
+function wheel() {
+	pushMatrix();
+	currentColor = [0.5,0.7,1,1];
+	// mat4.rotate(modelview,modelview,(90)/180*Math.PI,[1,0,0]);
+  mat4.rotate(modelview,modelview,0,[1,0,0]); /* myAdding : rotating wheels */
+
+	torus.render();
+	popMatrix();
+}
+
+
+/**
+ *  Push a copy of the current modelview matrix onto the matrix stack.
+ */
+function pushMatrix() {
+    matrixStack.push( mat4.clone(modelview) );
+}
+
+/**
+ *  Restore the modelview matrix to a value popped from the matrix stack.
+ */
+function popMatrix() {
+    modelview = matrixStack.pop();
+}
+
+
+//textures
+function changeTexture(value){
+	gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, neheTexture[value]);
+    gl.uniform1i(prog.samplerUniform, 0);
+
+}
+ var neheTexture  =[];
+function initTexture() {
+  //item.texture = gl.createTexture();
+  //neheTexture = item.texture;
+/*  neheTexture.image = new Image();
+  neheTexture.image.crossOrigin = "anonymous";
+  neheTexture.image.onload = function() {
+    handleLoadedTexture(neheTexture);
+  }
+  neheTexture.image.src = url;
+*/
+neheTexture [0]= gl.createTexture();
+	neheTexture[0].image = new Image();
+	neheTexture[0].image.onload = function () {
+	handleLoadedTexture(neheTexture[0])
+}
+neheTexture[0].image.src = "pattern/grass_tile_003_col.png";
+
+neheTexture [1]= gl.createTexture();
+	neheTexture[1].image = new Image();
+	neheTexture[1].image.onload = function () {
+	handleLoadedTexture(neheTexture[1])
+}
+neheTexture[1].image.src = "pattern/chioma.png";
+neheTexture [2]= gl.createTexture();
+	neheTexture[2].image = new Image();
+	neheTexture[2].image.onload = function () {
+	handleLoadedTexture(neheTexture[2])
+}
+neheTexture[2].image.src = "pattern/empty.png";
+neheTexture [3]= gl.createTexture();
+	neheTexture[3].image = new Image();
+	neheTexture[3].image.onload = function () {
+	handleLoadedTexture(neheTexture[3])
+}
+neheTexture[3].image.src = "pattern/street.jpg";
+neheTexture [4]= gl.createTexture();
+	neheTexture[4].image = new Image();
+	neheTexture[4].image.onload = function () {
+	handleLoadedTexture(neheTexture[4])
+}
+neheTexture[4].image.src = "pattern/wall.png";
+neheTexture [5]= gl.createTexture();
+	neheTexture[5].image = new Image();
+	neheTexture[5].image.onload = function () {
+	handleLoadedTexture(neheTexture[5])
+}
+neheTexture[5].image.src = "pattern/wood.png";
+
+neheTexture [6]= gl.createTexture();
+	neheTexture[6].image = new Image();
+	neheTexture[6].image.onload = function () {
+	handleLoadedTexture(neheTexture[6])
+}
+neheTexture[6].image.src = "pattern/window.png";
+
+neheTexture [7]= gl.createTexture();
+	neheTexture[7].image = new Image();
+	neheTexture[7].image.onload = function () {
+	handleLoadedTexture(neheTexture[7])
+}
+neheTexture[7].image.src = "pattern/wall_roof.png";
+neheTexture [8]= gl.createTexture();
+	neheTexture[8].image = new Image();
+	neheTexture[8].image.onload = function () {
+	handleLoadedTexture(neheTexture[8])
+}
+neheTexture[8].image.src = "pattern/zucca.png";
+neheTexture [9]= gl.createTexture();
+	neheTexture[9].image = new Image();
+	neheTexture[9].image.onload = function () {
+	handleLoadedTexture(neheTexture[9])
+}
+neheTexture[9].image.src = "pattern/prova.png";
+
+neheTexture [10]= gl.createTexture();
+	neheTexture[10].image = new Image();
+	neheTexture[10].image.onload = function () {
+	handleLoadedTexture(neheTexture[10])
+}
+neheTexture[10].image.src = "pattern/dress.png";
+
+}
+
+function handleLoadedTexture(texture){
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,texture.image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+  gl.bindTexture(gl.TEXTURE_2D,null);
+
+}
+
+
+/**
+ *  Create one of the basic objects.  The modelData holds the data for
+ *  an IFS using the structure from basic-objects-IFS.js.  This function
+ *  creates VBOs to hold the coordinates, normal vectors, and indices
+ *  from the IFS, and it loads the data into those buffers.  The function
+ *  creates a new object whose properties are the identifies of the
+ *  VBOs.  The new object also has a function, render(), that can be called to
+ *  render the object, using all the data from the buffers.  That object
+ *  is returned as the value of the function.  (The second parameter,
+ *  xtraTranslate, is there because this program was ported from a Java
+ *  version where cylinders were created in a different position, with
+ *  the base on the xy-plane instead of with their center at the origin.
+ *  The xtraTranslate parameter is a 3-vector that is applied as a
+ *  translation to the rendered object.  It is used to move the cylinders
+ *  into the position expected by the code that was ported from Java.)
+ */
+
+function createModel(modelData, xtraTranslate) {
+  var model = {};
+    model.coordsBuffer = gl.createBuffer();
+    model.normalBuffer = gl.createBuffer();
+    model.indexBuffer = gl.createBuffer();
+    model.textureBuffer=gl.createBuffer();
+
+
+    model.count = modelData.indices.length;
+    if (xtraTranslate)
+        model.xtraTranslate = xtraTranslate;
+    else
+        model.xtraTranslate = null;
+
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, model.textureBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, modelData.vertexTextureCoords, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, model.coordsBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, modelData.vertexPositions, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, model.normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, modelData.vertexNormals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, modelData.indices, gl.STATIC_DRAW);
+    model.render = function() {  // This function will render the object.
+           // Since the buffer from which we are taking the coordinates and normals
+	   // change each time an object is drawn, we have to use gl.vertexAttribPointer
+	   // to specify the location of the data. And to do that, we must first
+	   // bind the buffer that contains the data.  Similarly, we have to
+	   // bind this object's index buffer before calling gl.drawElements.
+     //texture
+//     gl.uniform1i(uHasTexture, this.hasTexture);
+  //   if(this.hasTexture){
+       gl.enableVertexAttribArray(aTextureCoordinates);
+       gl.bindBuffer(gl.ARRAY_BUFFER, this.textureBuffer);
+       gl.vertexAttribPointer(aTextureCoordinates , 2, gl.FLOAT, false, 0, 0);
+
+     //  gl.activeTexture(gl.TEXTURE0);
+      // gl.bindTexture(gl.TEXTURE_2D, this.texture);
+       //gl.uniform1i(uniformSamplerLoc,0);
+    // }
+   //  else{
+   //    gl.disableVertexAttribArray(aTextureCoordinates);
+   //  }
+
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.coordsBuffer);
+        gl.vertexAttribPointer(aCoords, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+        gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
+
+        gl.uniform3fv(uDirectionalLight, directional ); //  - lighting - sunlight
+
+        gl.uniform3fv(uLightPositionPositional,xmas_light);
+	 gl.uniform3fv(uLightPositionPositional2,fat_light);
+              
+	 gl.uniform3fv(uLightPositionSpot,spotPosT);
+        gl.uniform3fv(uSpotLightDirection,spotDirT);
+
+	gl.uniform3fv(uLightPositionSpot2,spotPosT2);
+        gl.uniform3fv(uSpotLightDirection2,spotDirT2);
+
+	gl.uniform3fv(uLightPositionSpot3,spotPosT3);
+        gl.uniform3fv(uSpotLightDirection3,spotDirT3);
+
+
+        gl.uniform4fv(uColor, currentColor);
+        if (this.xtraTranslate) {
+            pushMatrix();
+            mat4.translate(modelview,modelview,this.xtraTranslate);
+        }
+        gl.uniformMatrix4fv(uModelview, false, modelview );
+        mat3.normalFromMat4(normalMatrix, modelview);
+        gl.uniformMatrix3fv(uNormalMatrix, false, normalMatrix);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.drawElements(gl.TRIANGLES, this.count, gl.UNSIGNED_SHORT, 0);
+        if (this.xtraTranslate) {
+            popMatrix();
+        }
+    }
+
+
+    return model;
+}
+
+
+
+/* Creates a program for use in the WebGL context gl, and returns the
+ * identifier for that program.  If an error occurs while compiling or
+ * linking the program, an exception of type String is thrown.  The error
+ * string contains the compilation or linking error.  If no error occurs,
+ * the program identifier is the return value of the function.
+ */
+var prog;
+function createProgram(gl, vertexShaderSource, fragmentShaderSource) {
+   var vsh = gl.createShader( gl.VERTEX_SHADER );
+   gl.shaderSource(vsh,vertexShaderSource);
+   gl.compileShader(vsh);
+   if ( ! gl.getShaderParameter(vsh, gl.COMPILE_STATUS) ) {
+      throw "Error in vertex shader:  " + gl.getShaderInfoLog(vsh);
+   }
+   var fsh = gl.createShader( gl.FRAGMENT_SHADER );
+   gl.shaderSource(fsh, fragmentShaderSource);
+   gl.compileShader(fsh);
+   if ( ! gl.getShaderParameter(fsh, gl.COMPILE_STATUS) ) {
+      throw "Error in fragment shader:  " + gl.getShaderInfoLog(fsh);
+   }
+   prog = gl.createProgram();
+   gl.attachShader(prog,vsh);
+   gl.attachShader(prog, fsh);
+   gl.linkProgram(prog);
+   if ( ! gl.getProgramParameter( prog, gl.LINK_STATUS) ) {
+      throw "Link error in program:  " + gl.getProgramInfoLog(prog);
+   }
+   return prog;
+}
+
+
+/* Gets the text content of an HTML element.  This is used
+ * to get the shader source from the script elements that contain
+ * it.  The parameter should be the id of the script element.
+ */
+function getTextContent( elementID ) {
+    var element = document.getElementById(elementID);
+    var fsource = "";
+    var node = element.firstChild;
+    var str = "";
+    while (node) {
+        if (node.nodeType == 3) // this is a text node
+            str += node.textContent;
+        node = node.nextSibling;
+    }
+    return str;
+}
+
+
+//--------------------------------- animation framework ------------------------------
+
+window.requestAnimationFrame =
+    window.requestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    window.webkitRequestAnimationFrame ||
+    window.msRequestAnimationFrame ||
+    window.oRequestAnimationFrame ||
+    function (callback) {
+        setTimeout(function() { callback(Date.now()); },  1000/60);
+    }
+
+var animating = false;
+var car_position_1 = [0,0.65,-8];
+var car_position_2 = [0,0.65,13];
+var car_angle;
+var carRot1 =0 ;
+function frame() {
+  if (animating) {
+    frameNumber += 0.05;//0.5;
+
+    var sunangle = (frameNumber - 6.0)* Math.PI/12.0;
+    var position = [Math.sin(sunangle), Math.cos(sunangle), 0.0];
+    directional = position;
+    car_angle = ((frameNumber-28)/2 )* Math.PI/24.0;
+
+    if(frameNumber>28){car_position_2 = [-Math.sin(car_angle)*13, 0.65, Math.cos(car_angle)*13];
+    //car_position_1 = [Math.sin(car_angle)*8, 0.65, -Math.cos(car_angle)*8];
+    carRot1=(-(frameNumber-28) * 3.5);
+}
+    draw();
+    requestAnimationFrame(frame);
+  }
+}
+
+function setAnimating(run) {
+  if (run != animating) {
+    animating = run;
+    if (animating)
+      requestAnimationFrame(frame);
+    }
+  }
+
+//-------------------------------------------------------------------------
+var spotPos ;
+var spotDir ;
+var spotDirT ;
+var spotPosT ;
+var spotPos2 ;
+var spotDir2 ;
+var spotDirT2 ;
+var spotPosT2 ;
+
+var spotPos3 ;
+var spotDir3 ;
+var spotDirT3 ;
+var spotPosT3 ;
+
+
+var uLightPositionPositional;
+var uLightPositionPositional2;
+
+var uLightPositionSpot;
+var uSpotLightDirection;
+var uLightPositionSpot2;
+var uSpotLightDirection2;
+var uLightPositionSpot3;
+var uSpotLightDirection3;
+
+
+var xmas_light;
+var fat_light;
+
+var vshader  = "vshader" ;
+var fshader= "fshader";
+function init() {
+  spotDirT = vec3.create();
+  spotPosT = vec3.create();
+  spotDirT2 = vec3.create();
+  spotPosT2 = vec3.create();
+  spotDirT3 = vec3.create();
+  spotPosT3 = vec3.create();
+  
+  
+  xmas_light = vec3.fromValues(lightPos[0],lightPos[1],lightPos[2]);
+  fat_light = vec3.fromValues(lightPos2[0],lightPos2[1],lightPos2[2]);
+
+  spotPos = vec3.fromValues(0,0.0,0.0);
+  spotDir = vec3.fromValues(6.7,3.0,-3);
+  spotPos2 = vec3.fromValues(-1.8,1,0);
+  spotDir2 = vec3.fromValues(0,0.5,1.5);
+spotPos3 = vec3.fromValues(-1.8,1,0);
+  spotDir3 = vec3.fromValues(0,0.5,1.5);
+
+   try {
+        var canvas = document.getElementById("glcanvas");
+        gl = canvas.getContext("webgl");
+        if ( ! gl ) {
+            gl = canvas.getContext("experimental-webgl");
+        }
+        if ( ! gl ) {
+            throw "Could not create WebGL context.";
+        }
+
+        if(getShader() == "simple"){
+          // vshader = "simple_vshader";
+          // fshader = "simple_fshader";
+          vshader = "vshader";
+          fshader = "fshader";
+        }
+        else
+          if(getShader() == "phong"){
+            vshader = "pho_vshader";
+            fshader = "pho_fshader";
+          }
+	else if (getShader() == "phong_notex"){
+		vshader="phont_vshader";
+		fshader = "phont_fshader";		
+
+}
+          else{
+              vshader =  "gou_vshader";
+              fshader = "gou_fshader";
+            }
+
+        var vertexShaderSource = getTextContent(vshader);
+        var fragmentShaderSource = getTextContent(fshader);
+
+        var prog = createProgram(gl,vertexShaderSource,fragmentShaderSource);
+        gl.useProgram(prog);
+
+        //attributes
+        aCoords =  gl.getAttribLocation(prog, "coords");
+        aNormal =  gl.getAttribLocation(prog, "normal");
+        aTextureCoordinates =  gl.getAttribLocation(prog, "aTextureCoordinates");
+
+        //uniform
+        uDirectionalLight = gl.getUniformLocation(prog,"uDirectionalLight");  //  - sunlight - lighting
+        uLightPositionPositional = gl.getUniformLocation(prog,"uLightPositionPositional");  //  - sunlight - lighting
+	uLightPositionPositional2 = gl.getUniformLocation(prog,"uLightPositionPositional2");  //  - sunlight - lighting
+
+
+        uLightPositionSpot = gl.getUniformLocation(prog,"uLightPositionSpot");  //  - sunlight - lighting
+        uSpotLightDirection = gl.getUniformLocation(prog,"uSpotLightDirection");  //  - sunlight - lighting
+
+	uLightPositionSpot2 = gl.getUniformLocation(prog,"uLightPositionSpot2");  //  - sunlight - lighting
+        uSpotLightDirection2 = gl.getUniformLocation(prog,"uSpotLightDirection2");  //  - sunlight - lighting
+
+	uLightPositionSpot3 = gl.getUniformLocation(prog,"uLightPositionSpot3");  //  - sunlight - lighting
+        uSpotLightDirection3 = gl.getUniformLocation(prog,"uSpotLightDirection3");  //  - sunlight - lighting
+
+
+        uniformSamplerLoc = gl.getUniformLocation(prog,"uSampler");  //  - texture
+        uModelview = gl.getUniformLocation(prog, "modelview");
+        uProjection = gl.getUniformLocation(prog, "projection");
+        uColor =  gl.getUniformLocation(prog, "color");
+        uNormalMatrix =  gl.getUniformLocation(prog, "normalMatrix");
+     //   uHasTexture = gl.getUniformLocation(prog, "uHasTexture"); //texture
+
+
+        gl.enableVertexAttribArray(aCoords);  // won't change after initialization.
+        gl.enableVertexAttribArray(aNormal);  // also won't change.
+        gl.enable(gl.DEPTH_TEST);
+
+	//texture
+	initTexture();
+   }
+   catch (e) {
+      document.getElementById("message").innerHTML =
+           "Could not initialize WebGL: " + e;
+      return;
+   }
+
+   ring = createModel(ring(3.3,4.8,40));
+   cube = createModel(cube());
+   torus = createModel(uvTorus(0.5,1,16,8));   // Create all the basic objects.
+   sphere = createModel(uvSphere(1));
+   cone = createModel(uvCone(),[-2,0,0]);
+   cylinder = createModel(uvCylinder(),[0,0,.5]);
+   disk = createModel(uvCylinder(5.5,0.5,64),[0,0,.25]);
+
+
+
+   //initTexture(ring,"wall.png");
+   //initTexture(disk,"chioma.png");
+   //initTexture(cone,"wall.png");
+   //initTexture(torus,"wall.png");
+   //initTexture(cylinder,"wall.png");
+   //initTexture(castle,"chioma.png");	
+
+
+   rotator = new SimpleRotator(canvas,draw);
+   rotator.setView( [0, 1, 2], [0,1,0], 16);
+   setAnimating(true);
+   draw();
+
+
+}
+var uniformSamplerLoc;
+function getShader()
+{
+  var oRadio = document.forms[0].elements["shader"];
+
+  for(var i = 0; i < oRadio.length; i++)
+  {
+    if(oRadio[i].checked)
+    {
+      return oRadio[i].value;
+    }
+  }
+
+}
+</script>
+</head>
+<body onload="init();" style="background-color:#DDD">
+
+
+
+<p id="message" style="font-weight:bold">Drag your mouse on the model to rotate it.</p>
+
+<p>
+</p>
+
+
+<div>
+  <table style="width:100%">
+    <tr>
+      <canvas width=800 height=800 id="glcanvas" style="background-color:blue"></canvas>
+      <td><form action="">
+        <fieldset>
+          <legend> Choose the shader</legend>
+          <input type="radio" checked= "true" name="shader" value="simple" onclick="init()"/>Objects assembled
+        </br>
+            <input type="radio" name="shader" value="phong" onclick="init()"/>Phong with Texture Shader
+        </br>
+           <input type="radio" name="shader" value="gouraud"  onclick="init()"/>Gouraud Shader
+</br>
+            <input type="radio" name="shader" value="phong_notex" onclick="init()"/>Phong Without Texture Shader
+        
+        </fieldset>
+      </form></td>
+
+    </tr>
+
+  </table>
+
+
+</div>
+
+
+</body>
+</html>
+
